@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 from urllib.parse import quote
 
 # Get connection details from secrets
@@ -11,25 +10,24 @@ db_config = {
     "port": "5432"  # Default PostgreSQL port
 }
 
+# URL encode the password
 encoded_password = quote(db_config["password"])
 
 # Create the connection URL for PostgreSQL
 conn_url = (
-    f'postgresql+psycopg2://{db_config["user"]}:{encoded_password}@{db_config["host"]}:{db_config["port"]}/{db_config["database"]}'
+    f'postgresql+psycopg2://{db_config["user"]}:{encoded_password}'
+    f'@{db_config["host"]}:{db_config["port"]}/{db_config["database"]}'
 )
 
-st.write(conn_url)
+# Debugging: Print connection URL (without exposing sensitive info)
+st.write(f"Connecting to database at {db_config['host']}")
 
 # Create the connection with the URL specified
-conn = st.connection(
-    "google_cloud_sql",
-    type="sql",
-    url=conn_url
-)
+from sqlalchemy import create_engine
 
-# Example query using the connection
-@st.cache_data(ttl=600)
-def run_query(query):
-    return conn.query(query)
-
-data = run_query('SELECT * FROM "EMPLOYEE"')
+try:
+    engine = create_engine(conn_url)
+    conn = engine.connect()
+    st.success("Connected successfully!")
+except Exception as e:
+    st.error(f"Error connecting to database: {str(e)}")
