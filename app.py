@@ -81,7 +81,7 @@ def auth_page():
 
         user = conn.query(query)
         
-        user = user[0].to_dict()
+        user = user.iloc[0].to_dict()
         
         st.write(user)
         
