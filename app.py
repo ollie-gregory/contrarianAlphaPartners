@@ -486,6 +486,78 @@ def get_candlestick_chart(ticker):
     
     return fig
 
+@st.cache_resource
+def get_biggest_movers():
+    
+    query = f"""
+            WITH latest_month AS (
+                SELECT DATE_TRUNC('month', MAX(date))::DATE as latest_month
+                FROM "STOCK_HISTORY"
+            ),
+            stock_prices AS (
+                SELECT DISTINCT
+                    sh.stock_id,
+                    sh.ticker,
+                    curr.close_price as current_price,
+                    prev.close_price as previous_price,
+                    curr.date as current_price_date,
+                    prev.date as previous_price_date,
+                    CASE 
+                        WHEN prev.close_price > 0 THEN 
+                            ((curr.close_price - prev.close_price) / prev.close_price * 100)
+                        ELSE NULL 
+                    END as growth_percentage
+                FROM "STOCK_HISTORY" sh
+                CROSS JOIN latest_month lm
+                LEFT JOIN LATERAL (
+                    SELECT date, close_price
+                    FROM "STOCK_HISTORY" curr
+                    WHERE curr.stock_id = sh.stock_id
+                    AND curr.date <= lm.latest_month + INTERVAL '1 month - 1 day'
+                    ORDER BY date DESC
+                    LIMIT 1
+                ) curr ON true
+                LEFT JOIN LATERAL (
+                    SELECT date, close_price
+                    FROM "STOCK_HISTORY" prev
+                    WHERE prev.stock_id = sh.stock_id
+                    AND prev.date <= (lm.latest_month - INTERVAL '1 day')
+                    ORDER BY date DESC
+                    LIMIT 1
+                ) prev ON true
+            )
+            SELECT 
+                stock_id as "Stock ID",
+                ticker as "Ticker",
+                ROUND(current_price::numeric, 2) as "Current Price",
+                TO_CHAR(current_price_date, 'YYYY-MM-DD') as "Current Price Date",
+                ROUND(previous_price::numeric, 2) as "Previous Price",
+                TO_CHAR(previous_price_date, 'YYYY-MM-DD') as "Previous Price Date",
+                ROUND(growth_percentage::numeric, 2) as "Growth %"
+            FROM stock_prices
+            WHERE current_price IS NOT NULL 
+            AND previous_price IS NOT NULL
+            ORDER BY ABS(growth_percentage) DESC
+            LIMIT(5);
+            """
+    
+    df = conn.query(query)
+    
+    fig, ax = plt.subplots(figsize=(6,2.5))
+    
+    ax.bar(df['Ticker'], df['Growth %'], color=df['Growth %'].apply(lambda x: 'g' if x >= 0 else 'r'))
+    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(False)
+    
+    ax.axhline(0, color='white', linewidth=0.5)
+    ax.grid(False)
+    
+    return fig
+    
+
 def manager_view(user):
 
     green_triangle = ":green[▲]"
@@ -569,6 +641,11 @@ def manager_view(user):
         st.pyplot(fig)
         
         st.dataframe(df1)
+        
+        fig = get_biggest_movers()
+        
+        st.write("##### Biggest Movers This Month")
+        st.pyplot(fig)
         
         
         
