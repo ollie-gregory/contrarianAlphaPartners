@@ -562,6 +562,9 @@ def manager_view(user):
                 st.session_state.auth_status = False  # Reset authentication status
                 st.session_state.user = None
                 st.rerun()
+                
+        st.write(f"##### {ticker} Recent Price Movement ($USD)")
+        st.pyplot(fig)
         
         st.dataframe(df1)
         
