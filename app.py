@@ -47,7 +47,7 @@ def check_auth(username, password):
 
     user = conn.query(query)
     
-    user = dict(user[0]) if user else None
+    user = dict(user[0]) if user[0] else None
 
     st.session_state.user = user
 
