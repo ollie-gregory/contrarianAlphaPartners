@@ -215,6 +215,8 @@ def manager_view(user):
 
         fig = px.line(df, x="Date", y="Fund Value")
         
+        st.plotly_chart(fig, use_container_width=True)
+        
 def ceo_view(user):
     return None
         
