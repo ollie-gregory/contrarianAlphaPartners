@@ -101,7 +101,7 @@ def auth_page():
 def get_fund_stocks(user):
     query = f"""
             WITH fund_manager AS (
-                SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user['emp_id']}
+                SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user}
             ),
             stock_assets AS (
                 SELECT * FROM "ASSET" a
