@@ -333,7 +333,12 @@ def fund_portfolio_allocation(user, ticker):
     ax.set_facecolor('#00172B')
     ax.patch.set_facecolor('#00172B')
     
-    return fig
+    df = df.drop(columns=["percentage"])
+    df.sort_values("Asset Value", ascending=False, inplace=True)
+    df["Asset Value"] = df["Asset Value"].apply(lambda x: f"${x/1000000:.2f}M") # Format values as millions with dollar signs
+    df = df.pivot_table(index=None, columns="Asset", values="Asset Value", aggfunc='first')
+    
+    return fig, df
 
 def manager_view(user):
 
@@ -366,10 +371,14 @@ def manager_view(user):
         
         ticker = st.selectbox("Your stocks:", stocks_list)
         
-        fig = fund_portfolio_allocation(user['emp_id'], ticker)
+        fig, df1 = fund_portfolio_allocation(user['emp_id'], ticker)
         
         st.write("##### Portfolio Allocation")
         st.pyplot(fig)
+        
+    with col3:
+        
+        st.dataframe(df1)
         
         
         
