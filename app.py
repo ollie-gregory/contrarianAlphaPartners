@@ -32,4 +32,6 @@ if conn:
     
 df = conn.query('SELECT * FROM "EMPLOYEE"')
 
+st.write(conn)
+
 st.dataframe(df)
