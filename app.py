@@ -46,8 +46,7 @@ def check_auth(username, password):
             """
 
     user = conn.query(query)
-    
-    user = dict(user[0]) if user[0] else None
+    user = user.iloc[0].to_dict() if not user.empty else None
 
     st.session_state.user = user
 
@@ -70,20 +69,6 @@ def auth_page():
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        
-        password_hash = hashlib.sha256(password.encode()).hexdigest() # Hash the password so it matches the database
-
-        query = f"""
-                SELECT *
-                FROM "EMPLOYEE"
-                WHERE username = '{username}' AND password = '{password_hash}'
-                """
-
-        user = conn.query(query)
-        
-        user = user.iloc[0].to_dict()
-        
-        st.write(user)
         
         if check_auth(username, password):
             st.session_state.auth_status = True
