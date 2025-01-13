@@ -37,4 +37,6 @@ def run_query(query):
     return conn.query(query)
 
 # Usage example
-df = run_query('SELECT * FROM your_table LIMIT 10;')
+df = run_query('SELECT * FROM "EMPLOYEE";')
+
+st.dataframe(df)
