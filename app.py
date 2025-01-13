@@ -97,13 +97,8 @@ def auth_page():
             - David Solomon,     Username: `dsolomon18`,      Password: `iLoveGoldman99`""")
 
 
-# Function to display manager dashboard
-def manager_view(user):
-
-    green_triangle = ":green[▲]"
-    red_triangle = ":red[▼]"
-    
-    # Get the list of stocks this fund holds
+# Manager view functions:
+def get_fund_stocks(user):
     query = f"""
             WITH fund_manager AS (
                 SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user['emp_id']}
@@ -119,6 +114,37 @@ def manager_view(user):
 
     stocks = conn.query(query)
     stocks_list = stocks['ticker'].tolist()
+    
+    return stocks_list
+
+def fund_value_widget(user):
+    
+    query = f"""
+        WITH fund_manager AS (
+            SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user}
+        ),
+        stock_prices AS (
+            SELECT stock_id, current_price 
+            FROM "STOCK"
+        )
+        SELECT ROUND(SUM(a.cash_balance + (a.stock_quantity * sp.current_price)), 2) as total_value
+        FROM "ASSET" a
+        JOIN fund_manager fm ON a.fund_id = fm.fund_id
+        JOIN stock_prices sp ON a.stock_id = sp.stock_id;
+        """
+    
+    total_value_df = conn.query(query)
+    total_value = total_value_df.iloc[0][0]
+    
+    st.metric("Total Fund Value", f"${total_value:,}")
+
+def manager_view(user):
+
+    green_triangle = ":green[▲]"
+    red_triangle = ":red[▼]"
+    
+    # Get the list of stocks this fund holds
+    stocks_list = get_fund_stocks(user['emp_id'])
 
     col1, sp1, col2, sp2, col3 = st.columns([9,1,9,1,9])
 
@@ -127,24 +153,7 @@ def manager_view(user):
         st.header(f"Welcome, {user['fname']}!")
 
         # Current value widget:
-        query = f"""
-                WITH fund_manager AS (
-                    SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user['emp_id']}
-                ),
-                stock_prices AS (
-                    SELECT stock_id, current_price 
-                    FROM "STOCK"
-                )
-                SELECT ROUND(SUM(a.cash_balance + (a.stock_quantity * sp.current_price)), 2) as total_value
-                FROM "ASSET" a
-                JOIN fund_manager fm ON a.fund_id = fm.fund_id
-                JOIN stock_prices sp ON a.stock_id = sp.stock_id;
-                """
-        
-        total_value_df = conn.query(query)
-        total_value = total_value_df.iloc[0][0]
-
-        st.metric("Total Fund Value", f"${total_value:,}")
+        fund_value_widget(user['emp_id'])
         
         # Fund value over time widget:
         query = f"""
