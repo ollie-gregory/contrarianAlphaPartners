@@ -1,5 +1,7 @@
 import streamlit as st
 import hashlib
+import pandas as pd
+import plotly.express as px
 
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -143,6 +145,66 @@ def manager_view(user):
         total_value = total_value_df.iloc[0][0]
 
         st.metric("Total Fund Value", f"${total_value:,}")
+        
+        # Fund value over time widget:
+        query = f"""
+                WITH RECURSIVE date_range AS (
+                    SELECT DATE_TRUNC('month', MIN(date)) AS month_date
+                    FROM "STOCK_HISTORY"
+
+                    UNION ALL
+
+                    SELECT DATE_TRUNC('month', month_date + INTERVAL '1 month')
+                    FROM date_range
+                    WHERE month_date < (SELECT DATE_TRUNC('month', MAX(date)) FROM "STOCK_HISTORY")
+                ),
+                fund_assets AS (
+                    SELECT ha.*
+                    FROM "HISTORIC_ASSET" ha
+                    INNER JOIN "FUND" f ON f.fund_id = ha.fund_id
+                    WHERE f.manager_id = {user['emp_id']}
+                ),
+                latest_dates AS (
+                    SELECT 
+                        d.month_date,
+                        MAX(fa.record_date) as latest_date
+                    FROM date_range d
+                    LEFT JOIN fund_assets fa 
+                        ON DATE_TRUNC('month', fa.record_date) <= d.month_date
+                    GROUP BY d.month_date
+                ),
+                monthly_assets AS (
+                    SELECT 
+                        ld.month_date,
+                        ld.latest_date,
+                        fa.*
+                    FROM latest_dates ld
+                    LEFT JOIN fund_assets fa ON fa.record_date = ld.latest_date
+                ),
+                asset_prices AS (
+                    SELECT 
+                        ma.*,
+                        (
+                            SELECT close_price 
+                            FROM "STOCK_HISTORY" sh
+                            WHERE sh.stock_id = ma.h_stock_id 
+                            AND sh.date <= ma.month_date + INTERVAL '1 month' - INTERVAL '1 day'
+                            ORDER BY sh.date DESC
+                            LIMIT 1
+                        ) as stock_price
+                    FROM monthly_assets ma
+                )
+                SELECT month_date as "Date", SUM(h_cash_balance + (h_stock_quantity * stock_price)) as "Fund Value" FROM asset_prices
+                GROUP BY month_date
+                ORDER BY month_date DESC;
+                """
+
+        df = conn.query(query)
+
+        df["Date"] = pd.to_datetime(df["Date"])
+        df["Fund Value"] = df["Fund Value"] / 1e6
+
+        fig = px.line(df, x="Date", y="Fund Value")
         
 def ceo_view(user):
     return None
