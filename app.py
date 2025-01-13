@@ -138,7 +138,8 @@ def fund_value_widget(user):
     total_value = total_value_df.iloc[0][0]
     
     st.metric("Total Fund Value", f"${total_value:,}")
-    
+
+@st.cache_resource
 def fund_value_over_time(user):
     query = f"""
             WITH RECURSIVE date_range AS (
@@ -248,11 +249,15 @@ def fund_industry_exposure(user):
     ax.spines["left"].set_visible(True)
     ax.spines["bottom"].set_visible(False)
     
+    ax.spines["left"].set_color("white")
     ax.spines["left"].set_position(('outward', 10))
+    
+    ax.tick_params(colors='white')  # Tick labels
+
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position("top")
     ax.grid(False)
-    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
+    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100, color='white')
     
     return fig
 
