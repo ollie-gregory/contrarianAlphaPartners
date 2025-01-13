@@ -460,6 +460,8 @@ def manager_view(user):
         st.write("##### Portfolio Allocation")
         st.pyplot(fig)
         
+        st.write(" ")
+        
         df = get_top_performing_stocks(user['emp_id'])
         
         with st.container():
