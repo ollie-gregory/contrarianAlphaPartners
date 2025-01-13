@@ -322,12 +322,16 @@ def fund_portfolio_allocation(user, ticker):
     
     fig, ax = plt.subplots(figsize=(6,6))
     
-    ax.pie(df["Asset Value"], radius=1.0, explode=explode, labels=labels, startangle=90)
+    ax.pie(df["Asset Value"], radius=1.0, explode=explode, labels=labels, startangle=90, textprops={'color': 'white'})
     ax.pie(df["Asset Value"], radius=0.75, colors=['#00172B'], explode=explode, startangle=90)
     
     centre_circle = plt.Circle((0,0), 0.75, fc='#00172B')
     ax.add_artist(centre_circle)
     ax.axis('equal')
+    
+    fig.patch.set_facecolor('#00172B')
+    ax.set_facecolor('#00172B')
+    ax.patch.set_facecolor('#00172B')
     
     return fig
 
