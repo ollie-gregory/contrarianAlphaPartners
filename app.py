@@ -45,7 +45,7 @@ def check_auth(username, password):
             WHERE username = '{username}' AND password = '{password_hash}'
             """
 
-    user = conn.execute(query).fetchone()
+    user = conn.query(query).fetchone()
 
     user = dict(user._mapping) if user else None
 
