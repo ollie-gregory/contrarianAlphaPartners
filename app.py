@@ -242,6 +242,10 @@ def fund_industry_exposure(user):
     
     fig, ax = plt.subplots(figsize=(6,4))
     
+    fig.patch.set_facecolor('#00172B')  
+    ax.set_facecolor('#00172B')         
+    ax.patch.set_facecolor('#00172B')
+    
     ax.barh(df["Industry"], df["Industry Allocation"], zorder=100)
     
     ax.spines["top"].set_visible(False)
