@@ -154,7 +154,7 @@ def fund_value_over_time(user):
                     SELECT ha.*
                     FROM "HISTORIC_ASSET" ha
                     INNER JOIN "FUND" f ON f.fund_id = ha.fund_id
-                    WHERE f.manager_id = {user['emp_id']}
+                    WHERE f.manager_id = {user}
                 ),
                 latest_dates AS (
                     SELECT 
