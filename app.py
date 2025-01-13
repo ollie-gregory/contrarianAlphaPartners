@@ -98,4 +98,8 @@ def auth_page():
 def main_page(user):
     st.write("hello, world")
     
-auth_page()
+# Page deployment logic
+if st.session_state.auth_status:
+    main_page(st.session_state.user)
+else:
+    auth_page()
