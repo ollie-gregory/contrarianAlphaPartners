@@ -492,6 +492,15 @@ def manager_view(user):
         
     with col3:
         
+        col4, col5 = st.columns([7,2])
+
+        # Log out button
+        with col5:
+            if st.button("Logout"):
+                st.session_state.auth_status = False  # Reset authentication status
+                st.session_state.user = None
+                st.rerun()
+        
         st.dataframe(df1)
         
         
