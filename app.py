@@ -219,6 +219,7 @@ def fund_value_over_time(user):
         
     return fig
     
+@st.cache_resource
 def fund_industry_exposure(user):
     
     # Industry exposure widget:
@@ -265,6 +266,71 @@ def fund_industry_exposure(user):
     
     return fig
 
+def fund_portfolio_allocation(user, ticker):
+    
+    query = f"""
+            WITH fund_manager AS (
+                SELECT fund_id, manager_id FROM "FUND" WHERE manager_id = {user}
+            ),
+            stock_prices AS (
+                SELECT stock_id, current_price, ticker 
+                FROM "STOCK"
+            ),
+            asset_values AS (
+                SELECT 
+                    COALESCE(sp.ticker, 'Cash') as Asset,
+                    COALESCE(a.cash_balance, 0) + COALESCE(ROUND(a.stock_quantity * sp.current_price, 2), 0) as "Asset Value"
+                FROM "ASSET" a
+                JOIN fund_manager fm ON a.fund_id = fm.fund_id
+                LEFT JOIN stock_prices sp ON a.stock_id = sp.stock_id
+                WHERE a.cash_balance > 0 OR (a.stock_quantity * sp.current_price) > 0
+            ),
+            ranked_assets AS (
+                SELECT Asset, "Asset Value",
+                    ROW_NUMBER() OVER (ORDER BY "Asset Value" DESC) as rank
+                FROM asset_values
+            )
+            SELECT 
+                CASE 
+                    WHEN rank <= 5 THEN Asset
+                    ELSE 'Other'
+                END as "Asset",
+                SUM("Asset Value") as "Asset Value"
+            FROM ranked_assets
+            GROUP BY 
+                CASE 
+                    WHEN rank <= 5 THEN Asset
+                    ELSE 'Other'
+                END
+            ORDER BY "Asset Value" DESC;
+            """
+
+    df = conn.query(query)
+        
+    df["percentage"] = (df["Asset Value"] / df["Asset Value"].sum()) * 100 # Calculate percentages
+    
+    donut_ticker = ticker
+        
+    if donut_ticker not in df["Asset"].tolist():
+        donut_ticker = "Other"
+    
+    labels = [f"{donut_ticker}\n{round(df.loc[df["Asset"] == donut_ticker, "percentage"].values[0],2)}%" for donut_ticker in df["Asset"]]
+    explode = [0] * len(df["Asset Value"])
+    
+    selected_index = df.iloc[df[df["Asset"] == donut_ticker].index[0]].name
+    explode[selected_index] = 0.05
+    
+    fig, ax = plt.subplots(figsize=(6,6))
+    
+    ax.pie(df["Asset Value"], radius=1.0, explode=explode, labels=labels, startangle=90)
+    ax.pie(df["Asset Value"], radius=0.75, colors=['#00172B'], explode=explode, startangle=90)
+    
+    centre_circle = plt.Circle((0,0), 0.75, fc='#00172B')
+    ax.add_artist(centre_circle)
+    ax.axis('equal')
+    
+    return fig
+
 def manager_view(user):
 
     green_triangle = ":green[▲]"
@@ -291,6 +357,17 @@ def manager_view(user):
         
         st.write("##### Industry Exposure (%)")
         st.pyplot(fig)
+        
+    with col2:
+        
+        ticker = st.selectbox("Your stocks:", stocks_list)
+        
+        fig = fund_portfolio_allocation(user['emp_id'], ticker)
+        
+        st.write("##### Portfolio Allocation")
+        st.pyplot(fig)
+        
+        
         
 def ceo_view(user):
     return None
