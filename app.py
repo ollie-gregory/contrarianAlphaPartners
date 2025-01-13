@@ -580,6 +580,7 @@ def manager_view(user):
         st.write("##### Fund Value Over Time")
         st.plotly_chart(fig)
         
+        # Industry exposure widget
         fig = fund_industry_exposure(user['emp_id'])
         
         st.write("##### Industry Exposure (%)")
@@ -646,11 +647,37 @@ def manager_view(user):
         
         st.write("##### Biggest Movers This Month")
         st.pyplot(fig)
-        
-        
-        
+
+# CEO view functions:
+def get_firm_value():
+    query = f"""
+            SELECT 
+                ROUND(SUM(COALESCE(a.cash_balance, 0) + 
+                          COALESCE(a.stock_quantity * s.current_price, 0)), 2) AS total_firm_value
+            FROM 
+                "ASSET" a
+            LEFT JOIN 
+                "STOCK" s
+            ON 
+                a.stock_id = s.stock_id;
+            """
+    
+    df = conn.query(query)
+    total_firm_value = df['total_firm_value'][0]
+    
+    st.metric("Total Firm Value", f"${total_firm_value:,}")
+
 def ceo_view(user):
-    return None
+
+    green_triangle = ":green[▲]"
+    red_triangle = ":red[▼]"
+
+    col1, sp1, col2, sp2, col3 = st.columns([9,1,9,1,9])
+    
+    with col1:
+        st.header(f"Welcome, {user['fname']}!")
+        
+        get_firm_value()
         
 
 def main_page_logic(user):
