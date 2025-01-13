@@ -19,6 +19,8 @@ conn_url = (
     f'@{db_config["host"]}:{db_config["port"]}/{db_config["database"]}'
 )
 
+st.write(conn_url)
+
 # Debugging: Print connection URL (without exposing sensitive info)
 st.write(f"Connecting to database at {db_config['host']}")
 
