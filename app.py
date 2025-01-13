@@ -29,3 +29,7 @@ conn = st.connection('sql')
 
 if conn:
     st.write("Connection successful!")
+    
+df = conn.query('SELECT * FROM "EMPLOYEE"')
+
+st.dataframe(df)
