@@ -116,7 +116,7 @@ def manager_view(user):
             """
 
     stocks = conn.query(query)
-    stocks_list = [stock[0] for stock in stocks_list]
+    stocks_list = stocks['ticker'].tolist()
 
     col1, sp1, col2, sp2, col3 = st.columns([9,1,9,1,9])
 
