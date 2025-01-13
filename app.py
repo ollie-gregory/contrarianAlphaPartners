@@ -2,6 +2,7 @@ import streamlit as st
 import hashlib
 import pandas as pd
 import plotly.express as px
+import matplotlib.pyplot as plt
 
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -139,83 +140,121 @@ def fund_value_widget(user):
     st.metric("Total Fund Value", f"${total_value:,}")
     
 def fund_value_over_time(user):
-        query = f"""
-                WITH RECURSIVE date_range AS (
-                    SELECT DATE_TRUNC('month', MIN(date)) AS month_date
-                    FROM "STOCK_HISTORY"
+    query = f"""
+            WITH RECURSIVE date_range AS (
+                SELECT DATE_TRUNC('month', MIN(date)) AS month_date
+                FROM "STOCK_HISTORY"
 
-                    UNION ALL
+                UNION ALL
+                
+                SELECT DATE_TRUNC('month', month_date + INTERVAL '1 month')
+                FROM date_range
+                WHERE month_date < (SELECT DATE_TRUNC('month', MAX(date)) FROM "STOCK_HISTORY")
+            ),
+            fund_assets AS (
+                SELECT ha.*
+                FROM "HISTORIC_ASSET" ha
+                INNER JOIN "FUND" f ON f.fund_id = ha.fund_id
+                WHERE f.manager_id = {user}
+            ),
+            latest_dates AS (
+                SELECT 
+                    d.month_date,
+                    MAX(fa.record_date) as latest_date
+                FROM date_range d
+                LEFT JOIN fund_assets fa 
+                    ON DATE_TRUNC('month', fa.record_date) <= d.month_date
+                GROUP BY d.month_date
+            ),
+            monthly_assets AS (
+                SELECT 
+                    ld.month_date,
+                    ld.latest_date,
+                    fa.*
+                FROM latest_dates ld
+                LEFT JOIN fund_assets fa ON fa.record_date = ld.latest_date
+            ),
+            asset_prices AS (
+                SELECT 
+                    ma.*,
+                    (
+                        SELECT close_price 
+                        FROM "STOCK_HISTORY" sh
+                        WHERE sh.stock_id = ma.h_stock_id 
+                        AND sh.date <= ma.month_date + INTERVAL '1 month' - INTERVAL '1 day'
+                        ORDER BY sh.date DESC
+                        LIMIT 1
+                    ) as stock_price
+                FROM monthly_assets ma
+            )
+            SELECT month_date as "Date", SUM(h_cash_balance + (h_stock_quantity * stock_price)) as "Fund Value" FROM asset_prices
+            GROUP BY month_date
+            ORDER BY month_date DESC;
+            """
 
-                    SELECT DATE_TRUNC('month', month_date + INTERVAL '1 month')
-                    FROM date_range
-                    WHERE month_date < (SELECT DATE_TRUNC('month', MAX(date)) FROM "STOCK_HISTORY")
-                ),
-                fund_assets AS (
-                    SELECT ha.*
-                    FROM "HISTORIC_ASSET" ha
-                    INNER JOIN "FUND" f ON f.fund_id = ha.fund_id
-                    WHERE f.manager_id = {user}
-                ),
-                latest_dates AS (
-                    SELECT 
-                        d.month_date,
-                        MAX(fa.record_date) as latest_date
-                    FROM date_range d
-                    LEFT JOIN fund_assets fa 
-                        ON DATE_TRUNC('month', fa.record_date) <= d.month_date
-                    GROUP BY d.month_date
-                ),
-                monthly_assets AS (
-                    SELECT 
-                        ld.month_date,
-                        ld.latest_date,
-                        fa.*
-                    FROM latest_dates ld
-                    LEFT JOIN fund_assets fa ON fa.record_date = ld.latest_date
-                ),
-                asset_prices AS (
-                    SELECT 
-                        ma.*,
-                        (
-                            SELECT close_price 
-                            FROM "STOCK_HISTORY" sh
-                            WHERE sh.stock_id = ma.h_stock_id 
-                            AND sh.date <= ma.month_date + INTERVAL '1 month' - INTERVAL '1 day'
-                            ORDER BY sh.date DESC
-                            LIMIT 1
-                        ) as stock_price
-                    FROM monthly_assets ma
-                )
-                SELECT month_date as "Date", SUM(h_cash_balance + (h_stock_quantity * stock_price)) as "Fund Value" FROM asset_prices
-                GROUP BY month_date
-                ORDER BY month_date DESC;
-                """
+    df = conn.query(query)
 
-        df = conn.query(query)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Fund Value"] = df["Fund Value"] / 1e6
 
-        df["Date"] = pd.to_datetime(df["Date"])
-        df["Fund Value"] = df["Fund Value"] / 1e6
-
-        fig = px.line(df, x="Date", y="Fund Value")
+    fig = px.line(df, x="Date", y="Fund Value")
         
                 # Customize the y-axis to display values in millions
-        fig.update_layout(
-            yaxis=dict(
-                title=None,
-                tickformat=".0f",  # Remove decimals
-                tickprefix="$",  # Add dollar sign
-                ticksuffix="M",  # Add "M" for millions
-            ),
-            xaxis=dict(
-                title=None,
-                rangeslider=dict(visible=True)
-            ),
-            width=800,
-            height=250,
-            margin=dict(l=5, r=5, t=5, b=10),
-        )
+    fig.update_layout(
+        yaxis=dict(
+            title=None,
+            tickformat=".0f",  # Remove decimals
+            tickprefix="$",  # Add dollar sign
+            ticksuffix="M",  # Add "M" for millions
+        ),
+        xaxis=dict(
+            title=None,
+            rangeslider=dict(visible=True)
+        ),
+        width=800,
+        height=250,
+        margin=dict(l=5, r=5, t=5, b=10),
+    )
         
-        return fig
+    return fig
+    
+def fund_industry_exposure(user):
+    
+    # Industry exposure widget:
+    query = f"""
+            WITH fund_manager AS (
+                SELECT fund_id, manager_id
+                FROM "FUND"
+                WHERE manager_id = {user}
+                )
+            SELECT SUM(ROUND((a.stock_quantity * s.current_price),2)) "Investment Value", s.industry "Industry" FROM "ASSET" a
+            JOIN fund_manager fm ON fm.fund_id = a.fund_id
+            JOIN "STOCK" s ON s.stock_id = a.stock_id
+            WHERE asset_type = 'stock' AND stock_quantity > 0
+            GROUP BY s.industry
+            """
+    
+    df = conn.query(query)
+    
+    df["Industry Allocation"] = (df["Investment Value"] / df["Investment Value"].sum()) * 100
+    df.sort_values("Industry Allocation", ascending=True, inplace=True)
+    
+    fig, ax = plt.subplots(figsize=(6,4))
+    
+    ax.barh(df["Industry"], df["Industry Allocation"], zorder=100)
+    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(False)
+    
+    ax.spines["left"].set_position(('outward', 10))
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position("top")
+    ax.grid(False)
+    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
+    
+    return fig
 
 def manager_view(user):
 
@@ -238,6 +277,11 @@ def manager_view(user):
 
         st.write("##### Fund Value Over Time")
         st.plotly_chart(fig)
+        
+        fig = fund_industry_exposure(user['emp_id'])
+        
+        st.write("##### Industry Exposure (%)")
+        st.pyplot(fig)
         
 def ceo_view(user):
     return None

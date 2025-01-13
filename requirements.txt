@@ -6,3 +6,4 @@ pymongo
 pandas
 mplfinance
 plotly
+matplotlib
