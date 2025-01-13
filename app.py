@@ -137,25 +137,8 @@ def fund_value_widget(user):
     total_value = total_value_df.iloc[0][0]
     
     st.metric("Total Fund Value", f"${total_value:,}")
-
-def manager_view(user):
-
-    green_triangle = ":green[▲]"
-    red_triangle = ":red[▼]"
     
-    # Get the list of stocks this fund holds
-    stocks_list = get_fund_stocks(user['emp_id'])
-
-    col1, sp1, col2, sp2, col3 = st.columns([9,1,9,1,9])
-
-    with col1:
-
-        st.header(f"Welcome, {user['fname']}!")
-
-        # Current value widget:
-        fund_value_widget(user['emp_id'])
-        
-        # Fund value over time widget:
+def fund_value_over_time(user):
         query = f"""
                 WITH RECURSIVE date_range AS (
                     SELECT DATE_TRUNC('month', MIN(date)) AS month_date
@@ -215,7 +198,46 @@ def manager_view(user):
 
         fig = px.line(df, x="Date", y="Fund Value")
         
-        st.plotly_chart(fig, use_container_width=True)
+                # Customize the y-axis to display values in millions
+        fig.update_layout(
+            yaxis=dict(
+                title=None,
+                tickformat=".0f",  # Remove decimals
+                tickprefix="$",  # Add dollar sign
+                ticksuffix="M",  # Add "M" for millions
+            ),
+            xaxis=dict(
+                title=None,
+                rangeslider=dict(visible=True)
+            ),
+            width=800,
+            height=250,
+            margin=dict(l=5, r=5, t=5, b=10),
+        )
+        
+        return fig
+
+def manager_view(user):
+
+    green_triangle = ":green[▲]"
+    red_triangle = ":red[▼]"
+    
+    # Get the list of stocks this fund holds
+    stocks_list = get_fund_stocks(user['emp_id'])
+
+    col1, sp1, col2, sp2, col3 = st.columns([9,1,9,1,9])
+
+    with col1:
+
+        st.header(f"Welcome, {user['fname']}!")
+
+        # Current value widget:
+        fund_value_widget(user['emp_id'])
+        
+        fig = fund_value_over_time(user['emp_id'])
+
+        st.write("##### Fund Value Over Time")
+        st.plotly_chart(fig)
         
 def ceo_view(user):
     return None
