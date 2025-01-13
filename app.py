@@ -1,23 +1,23 @@
 import streamlit as st
+import hashlib
 
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
-import pandas as pd
-import mplfinance as mpf
 
-# Create the connection with the URL specified
+# Manage auth state
+if "auth_status" not in st.session_state:
+    st.session_state.auth_status = False
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+    
+
+# Connect to SQL database
 conn = st.connection('sql')
 
-if conn:
-    st.write("Connection successful!")
-    
-df = conn.query('SELECT * FROM "EMPLOYEE"')
 
-st.write(conn)
-
-st.dataframe(df)
-
+# Connect to MongoDB
 mongo_username = st.secrets['mongo']['username']
 mongo_password = st.secrets['mongo']['password']
 
@@ -30,59 +30,75 @@ try:
 except Exception as e:
     print(e)
 
-mongodb = client['Hourly_Data']
+database = client['Hourly_Data']
 
-ticker = 'AAPL'
 
-# Stock price movement widget:
-collection = mongodb[ticker] # Access the relevant collection in the MongoDB database
-data = collection.find().sort('_id', -1)
-df = pd.DataFrame(list(data))
-df = df[['start_time', 'open_price', 'close_price', 'min_price', 'max_price']].rename(columns={'start_time': 'Datetime', 'open_price': 'Open', 'close_price': 'Close', 'min_price': 'Low', 'max_price': 'High'}, inplace=False)
-df['Datetime'] = pd.to_datetime(df['Datetime'])
-df.set_index('Datetime', inplace=True)
-df.sort_index(inplace=True)
-mc = mpf.make_marketcolors(
-    up='green',
-    down='red',
-    edge={'up': 'green', 'down': 'red'},
-    volume='in',
-    inherit=True
-)
-s = mpf.make_mpf_style(
-    marketcolors=mc,
-    gridcolor='w',
-    gridstyle='--',
-    facecolor='none',
-    edgecolor='w',
-    figcolor='none',
-    y_on_right=False,
-    rc={
-           'text.color': 'w',
-           'axes.labelcolor': 'w',
-           'axes.titlecolor': 'w',
-           'xtick.color': 'w',
-           'ytick.color': 'w'
-       }
-)
-fig, ax = mpf.plot(
-    df,
-    type='candle',
-    style=s,
-    ylabel_lower='Volume',
-    datetime_format='%H:%M',
-    returnfig=True
-)
-fig.patch.set_alpha(0)
-ax[0].patch.set_alpha(0)
-ax[0].set_ylabel(None)
+# Authentication page functions
+def check_auth(username, password):
 
-ax[0].spines["top"].set_visible(False)
-ax[0].spines["right"].set_visible(False)
-ax[0].spines["left"].set_visible(True)
-ax[0].spines["bottom"].set_visible(True)
+    username = username
+    password_hash = hashlib.sha256(password.encode()).hexdigest() # Hash the password so it matches the database
 
-ax[0].grid(alpha=0.3)
+    query = f"""
+            SELECT *
+            FROM "EMPLOYEE"
+            WHERE username = '{username}' AND password = '{password_hash}'
+            """
 
-st.write(f"##### {ticker} Recent Price Movement ($USD)")
-st.pyplot(fig)
+    user = conn.execute(query).fetchone()
+
+    user = dict(user._mapping) if user else None
+
+    st.session_state.user = user
+
+    if user:
+        return True
+    else:
+        return False
+
+def auth_page():
+    st.set_page_config(
+        page_title="Login",
+        page_icon="./docs/logo.png",
+        layout="centered"
+    )
+
+    st.header("Welcome to the Contrarian Alpha Partners Dashboard!")
+    st.write("Please login to access your personalised dashboard.")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if check_auth(username, password):
+            st.session_state.auth_status = True
+            st.rerun()
+        else:
+            st.error("Invalid username or password")
+            
+    st.write("""
+            The manager login details display information relevant to the managers. They are:
+
+            - Michael Burry,     Username: `mburry08`,        Password: `CDS4LIFE`
+            - Mark Baum,         Username: `mbaum08`,        Password: `iHateWallStreet2020`
+            - Jamie Shipley,     Username: `jshipley08`,      Password: `ilovetrading97`
+            - Charlie Geller,    Username: `cgeller08`,       Password: `MrTiddles2014`
+            - Warren Buffet,     Username: `wbuffet41`,       Password: `ValueInvestingSince1941`
+            - Ray Dalio,         Username: `rdalio83`,        Password: `iHateRisk92`
+            - Harper Stern,      Username: `hstern20`,        Password: `NYC-LDN19`
+            - Nicole Craig,      Username: `ncraig95`,        Password: `MoneyMoney95`
+            - Eric Tao,          Username: `etao81`,          Password: `KingOfTheBullPen2012`
+            - Kathy Tao,         Username: `ktao03`,          Password: `Wharton99`
+
+            The CEO login details display information about the firm's performance. They are:
+
+            - David Solomon,     Username: `dsolomon18`,      Password: `iLoveGoldman99`""")
+    
+
+def main_page(user):
+    st.write("hello, world")
+
+if st.session_state.auth_status:
+    main_page(st.session_state.user)
+else:
+    auth_page()
