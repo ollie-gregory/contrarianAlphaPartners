@@ -254,6 +254,9 @@ def fund_industry_exposure(user):
     ax.grid(False)
     ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
     
+    fig.patch.set_facecolor('#0F1117')
+    ax.set_facecolor('#0F1117')
+    
     return fig
 
 def manager_view(user):
