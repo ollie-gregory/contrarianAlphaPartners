@@ -563,6 +563,8 @@ def manager_view(user):
                 st.session_state.user = None
                 st.rerun()
                 
+        fig = get_candlestick_chart(ticker)
+                
         st.write(f"##### {ticker} Recent Price Movement ($USD)")
         st.pyplot(fig)
         
