@@ -1,42 +1,35 @@
 import streamlit as st
-from google.oauth2 import service_account
 import pandas as pd
-from sqlalchemy import create_engine
+from urllib.parse import quote
 
-# Create a connection function
-def init_connection():
-    # Create SSL certificates
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"]
-    )
-    
-    # Configure the connection
-    db_config = {
-        "instance_connection_name": st.secrets["instance_connection_name"],
-        "database": st.secrets["database"],
-        "user": st.secrets["user"],
-        "password": st.secrets["password"]
-    }
-    
-    # Create the connection URL for PostgreSQL
-    conn_url = (
-        f'postgresql+psycopg2://{db_config["user"]}:{db_config["password"]}'
-        f'@/{db_config["database"]}?host=/cloudsql/'
-        f'{db_config["instance_connection_name"]}'
-    )
-    
-    # Create the connection
-    return create_engine(conn_url)
+# Get connection details from secrets
+db_config = {
+    "host": st.secrets["google_db"]["host"],  # Public IP of your Cloud SQL instance
+    "database": st.secrets["google_db"]["database"],
+    "user": st.secrets["google_db"]["user"],
+    "password": st.secrets["google_db"]["password"],
+    "port": "5432"  # Default PostgreSQL port
+}
 
-# Create the connection in Streamlit
-conn = st.connection('google_cloud_sql', type='sql')
+encoded_password = quote(db_config["password"])
+
+# Create the connection URL for PostgreSQL
+conn_url = (
+    f'postgresql+psycopg2://{db_config["user"]}:{encoded_password}@{db_config["host"]}:{db_config["port"]}/{db_config["database"]}'
+)
+
+st.write(conn_url)
+
+# Create the connection with the URL specified
+conn = st.connection(
+    "google_cloud_sql",
+    type="sql",
+    url=conn_url
+)
 
 # Example query using the connection
 @st.cache_data(ttl=600)
 def run_query(query):
     return conn.query(query)
 
-# Usage example
-df = run_query('SELECT * FROM "EMPLOYEE";')
-
-st.dataframe(df)
+data = run_query('SELECT * FROM "EMPLOYEE"')
