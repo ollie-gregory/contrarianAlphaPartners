@@ -649,6 +649,7 @@ def manager_view(user):
         st.pyplot(fig)
 
 # CEO view functions:
+@st.cache_resource
 def get_firm_value():
     query = f"""
             SELECT 
@@ -667,6 +668,125 @@ def get_firm_value():
     
     st.metric("Total Firm Value", f"${total_firm_value:,}")
 
+@st.cache_resource
+def manager_performance():
+    
+    query = f"""
+            WITH base_previous_dates AS (
+                SELECT DISTINCT ON (fund_id) 
+                    record_date,
+                    fund_id
+                FROM "HISTORIC_ASSET" 
+                WHERE record_date <= NOW() - INTERVAL '1 month'
+                ORDER BY fund_id, record_date DESC
+            ),
+            previous_assets AS (
+                SELECT 
+                    ha.*,
+                    (
+                        SELECT close_price
+                        FROM "STOCK_HISTORY" sh
+                        WHERE sh.stock_id = ha.h_stock_id
+                        AND sh.date <= ha.record_date
+                        ORDER BY sh.date DESC
+                        LIMIT 1
+                    ) as stock_price
+                FROM "HISTORIC_ASSET" ha
+                JOIN base_previous_dates bpd ON ha.record_date = bpd.record_date 
+                    AND ha.fund_id = bpd.fund_id
+                WHERE h_stock_quantity > 0 OR h_cash_balance > 0
+            ),
+            previous_values AS (
+                SELECT 
+                    fund_id,
+                    ROUND(SUM(COALESCE(h_cash_balance, 0) + 
+                              COALESCE(h_stock_quantity * stock_price, 0)), 2) AS previous_value
+                FROM previous_assets
+                GROUP BY fund_id
+            ),
+            current_values AS (
+                SELECT
+                    fund_id,
+                    ROUND(SUM(COALESCE(a.cash_balance, 0) + 
+                              COALESCE(a.stock_quantity * s.current_price, 0)), 2) AS current_value
+                FROM "ASSET" a
+                LEFT JOIN "STOCK" s ON a.stock_id = s.stock_id
+                GROUP BY fund_id
+            ),
+            fund_manager AS (
+                SELECT 
+                    CONCAT_WS(' ', fname, lname) AS name, 
+                    fund_id, 
+                    manager_id 
+                FROM "FUND"
+                JOIN "EMPLOYEE" ON manager_id = emp_id
+            )
+            SELECT
+                fm.name AS "Manager",
+                ROUND(((cv.current_value - pv.previous_value)/pv.previous_value) * 100, 2) AS "Performance",
+                cv.current_value AS "Current Value"
+            FROM current_values cv
+            JOIN previous_values pv ON cv.fund_id = pv.fund_id
+            JOIN fund_manager fm ON fm.fund_id = cv.fund_id;
+            """
+    
+    df = conn.query(query)
+    
+    return df
+
+@st.cache_resource
+def get_office_locations():
+    query = """
+            SELECT DISTINCT(city) FROM "OFFICE"
+            """
+            
+    regions = ['All']
+    
+    regions_df = conn.query(query)
+        
+    for city in regions_df['city']:
+        regions.append(city)
+    
+    return regions
+
+def get_region_allocations(region):
+    
+    query = f"""
+            SELECT 
+                o.city AS "Region",
+                ROUND(SUM(f.current_value), 2) AS "Firm Value"
+            FROM 
+                "FUND" f
+            JOIN 
+                "OFFICE" o ON f.location_id = o.office_id
+            GROUP BY 
+                o.city
+            ORDER BY "Firm Value" DESC;
+            """
+        
+    df = conn.query(query)
+    
+    df["percentage"] = (df["Firm Value"] / df["Firm Value"].sum()) *100
+
+    labels = [f"{region}\n{round(df.loc[df["Region"] == region, "percentage"].values[0],2)}%" for region in df["Region"]]
+    
+    explode = [0] * len(df["Region"])
+    
+    if region != 'All':
+      selected_index = df.iloc[df[df["Region"] == region].index[0]].name
+      explode[selected_index] = 0.05
+    
+    fig, ax = plt.subplots(figsize=(6,3.5))
+    
+    ax.pie(df["Firm Value"], labels=labels, startangle=90, explode=explode)
+    ax.pie(df["Firm Value"], radius=0.75, colors=['#00172B'], explode=explode, startangle=90)
+    
+    centre_circle = plt.Circle((0,0), 0.75, fc='#00172B')
+    ax.add_artist(centre_circle)
+    ax.axis('equal')
+    
+    return fig
+
 def ceo_view(user):
 
     green_triangle = ":green[▲]"
@@ -678,6 +798,41 @@ def ceo_view(user):
         st.header(f"Welcome, {user['fname']}!")
         
         get_firm_value()
+        
+        df = manager_performance()
+        
+        st.write("##### Manager Performance (Monthly)")
+        
+        for i in range(len(df)):
+            df_manager = df.iloc[i]['Manager']
+            performance = df.iloc[i]['Performance']
+            value = df.iloc[i]['Current Value']
+
+            # Determine triangle and color
+            if performance >= 0:
+                triangle = f":green[{green_triangle}]"
+            else:
+                triangle = f":red[{red_triangle}]"
+
+            # Create columns for better alignment
+            col10, col20, col30 = st.columns([2, 2, 1])  # Adjust column widths as needed
+            with col10:
+                st.write(f"**{df_manager}**")
+            with col20:
+                st.write(f"${value:,.2f}")
+            with col30:
+                st.write(f"{triangle} {performance}%")
+                
+    with col2:
+        
+        regions = get_office_locations()
+        
+        region = st.selectbox("Regions", regions)
+        
+        fig = get_region_allocations(region)
+        
+        st.write("##### Firm Value By Region")
+        st.pyplot(fig)
         
 
 def main_page_logic(user):
