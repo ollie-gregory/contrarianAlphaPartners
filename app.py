@@ -81,6 +81,8 @@ def auth_page():
 
         user = conn.query(query)
         
+        user = user.to_dict()
+        
         st.write(user)
         
         if check_auth(username, password):
