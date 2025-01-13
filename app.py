@@ -3,6 +3,9 @@ import streamlit as st
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
+import pandas as pd
+import mplfinance as mpf
+
 # Create the connection with the URL specified
 conn = st.connection('sql')
 
