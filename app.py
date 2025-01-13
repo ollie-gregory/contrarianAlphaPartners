@@ -23,11 +23,7 @@ conn_url = (
 st.write(f"Connecting to database at {db_config['host']}")
 
 # Create the connection with the URL specified
-from sqlalchemy import create_engine
+conn = st.connection(conn_url)
 
-try:
-    engine = create_engine(conn_url)
-    conn = engine.connect()
-    st.success("Connected successfully!")
-except Exception as e:
-    st.error(f"Error connecting to database: {str(e)}")
+if conn:
+    st.write("Connection successful!")
