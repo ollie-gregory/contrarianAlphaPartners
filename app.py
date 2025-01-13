@@ -23,7 +23,7 @@ conn_url = (
 st.write(f"Connecting to database at {db_config['host']}")
 
 # Create the connection with the URL specified
-conn = st.connection(conn_url)
+conn = st.connection('sql')
 
 if conn:
     st.write("Connection successful!")
