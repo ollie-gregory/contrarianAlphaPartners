@@ -749,7 +749,8 @@ def get_office_locations():
     
     return regions
 
-def get_region_allocations(region):
+@st.cache_resource
+def get_region_allocations_df():
     
     query = f"""
             SELECT 
@@ -765,6 +766,10 @@ def get_region_allocations(region):
             """
         
     df = conn.query(query)
+    
+    return df
+
+def plot_region_allocations(df, region):
     
     df["percentage"] = (df["Firm Value"] / df["Firm Value"].sum()) *100
 
@@ -829,7 +834,8 @@ def ceo_view(user):
         
         region = st.selectbox("Regions", regions)
         
-        fig = get_region_allocations(region)
+        df = get_region_allocations_df()
+        fig = plot_region_allocations(df, region)
         
         st.write("##### Firm Value By Region")
         st.pyplot(fig)
