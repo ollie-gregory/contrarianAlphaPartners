@@ -340,6 +340,90 @@ def fund_portfolio_allocation(user, ticker):
     
     return fig, df
 
+@st.cache_resource
+def get_top_performing_stocks(user):
+    
+    query = f"""
+            WITH latest_month AS (
+                SELECT DATE_TRUNC('month', MAX(date))::DATE AS latest_month
+                FROM "STOCK_HISTORY"
+            ), fund_manager AS (
+                SELECT fund_id, manager_id
+                FROM "FUND"
+                WHERE manager_id = {user}
+            ), stock_prices AS (
+                SELECT
+                    DISTINCT sh.stock_id, sh.ticker,
+                    curr.close_price AS current_price,
+                    prev.close_price AS previous_price,
+                    curr.date AS current_price_date,
+                    prev.date AS previous_price_date,
+                CASE
+                    WHEN prev.close_price > 0 THEN ((curr.close_price - prev.close_price) / prev.close_price * 100)
+                    ELSE NULL
+                END
+                    AS growth_percentage
+                FROM "STOCK_HISTORY" sh
+                CROSS JOIN latest_month lm
+                LEFT JOIN LATERAL (
+                    SELECT
+                        date,
+                        close_price
+                    FROM
+                        "STOCK_HISTORY" curr
+                    WHERE
+                        curr.stock_id = sh.stock_id
+                        AND curr.date <= lm.latest_month + INTERVAL '1 month - 1 day'
+                    ORDER BY
+                        date DESC
+                    LIMIT 1) curr
+                ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT
+                        date,
+                        close_price
+                    FROM
+                        "STOCK_HISTORY" prev
+                    WHERE
+                        prev.stock_id = sh.stock_id
+                        AND prev.date <= (lm.latest_month - INTERVAL '1 day')
+                    ORDER BY
+                        date DESC
+                    LIMIT
+                        1) prev
+                ON TRUE 
+            ), price_growth_rates AS(
+            SELECT
+                stock_id,
+                ticker,
+                ROUND(current_price::numeric, 2) AS current_price,
+                TO_CHAR(current_price_date, 'YYYY-MM-DD') AS "Current Price Date",
+                ROUND(previous_price::numeric, 2) AS previous_price,
+                TO_CHAR(previous_price_date, 'YYYY-MM-DD') AS "Previous Price Date",
+                ROUND(growth_percentage::numeric, 2) AS growth_rate
+            FROM
+                stock_prices
+            WHERE
+                current_price IS NOT NULL
+                AND previous_price IS NOT NULL
+            ORDER BY
+                growth_percentage DESC
+            )
+            SELECT
+                ticker "Ticker",
+                current_price "Current Price",
+                growth_rate "Growth Rate"
+            FROM "ASSET" a
+            JOIN price_growth_rates pgr ON pgr.stock_id = a.stock_id
+            JOIN fund_manager fm ON fm.fund_id = a.fund_id
+            ORDER BY pgr.growth_rate DESC
+            LIMIT(3);
+            """
+        
+    df = conn.query(query)
+    
+    return df
+
 def manager_view(user):
 
     green_triangle = ":green[▲]"
@@ -375,6 +459,34 @@ def manager_view(user):
         
         st.write("##### Portfolio Allocation")
         st.pyplot(fig)
+        
+        df = get_top_performing_stocks(user['emp_id'])
+        
+        with st.container():
+            
+            st.write("##### Top Performing Stocks in Your Portfolio This Month")
+
+            for i in range(len(df)):
+                df_ticker = df.iloc[i]['Ticker']
+                current_price = df.iloc[i]['Current Price']
+                growth_rate = df.iloc[i]['Growth Rate']
+
+                # Determine triangle and color
+                if growth_rate >= 0:
+                    triangle = f":green[{green_triangle}]"
+                else:
+                    triangle = f":red[{red_triangle}]"
+
+                # Create columns for better alignment
+                col10, col20, col30, col40 = st.columns([1, 2, 2, 2])  # Adjust column widths as needed
+                with col10:
+                    st.write(f"**{i+1}.**")
+                with col20:
+                    st.write(f"**{df_ticker}**")
+                with col30:
+                    st.write(f"${current_price:,.2f}")  # Format as currency
+                with col40:
+                    st.write(f"{triangle} {growth_rate:.2f}%")
         
     with col3:
         
