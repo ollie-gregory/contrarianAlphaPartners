@@ -978,7 +978,7 @@ def get_fund_values_over_time():
                             SELECT close_price 
                             FROM "STOCK_HISTORY" sh
                             WHERE sh.stock_id = ma.h_stock_id 
-                            AND sh.date <= ma.month_date + INTERVAL '1 month' - INTERVAL '1 day'
+                            AND sh.date <= ma.month_date
                             ORDER BY sh.date DESC
                             LIMIT 1
                         ) as stock_price
