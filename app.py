@@ -5,6 +5,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 import squarify
+import numpy as np
 
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -907,6 +908,91 @@ def firm_industry_exposure():
     
     ax.grid(False)
     ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
+    
+    return fig
+
+def get_fund_values_over_time():
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    
+    for i in range(10):
+        emp_id = 20001 + i
+        
+        query = f"""
+                SELECT CONCAT_WS(' ', fname, lname) as Name FROM "EMPLOYEE" WHERE emp_id = {emp_id}
+                """
+        
+        with pool.connect() as conn:
+            name = conn.query(query).iloc[0][0]
+        
+        query = f"""
+                WITH RECURSIVE date_range AS (
+                    SELECT DATE_TRUNC('month', MIN(date)) AS month_date
+                    FROM "STOCK_HISTORY"
+                    UNION ALL
+                    SELECT DATE_TRUNC('month', month_date + INTERVAL '1 month')
+                    FROM date_range
+                    WHERE month_date < (SELECT DATE_TRUNC('month', MAX(date)) FROM "STOCK_HISTORY")
+                ),
+                fund_assets AS (
+                    SELECT ha.*
+                    FROM "HISTORIC_ASSET" ha
+                    INNER JOIN "FUND" f ON f.fund_id = ha.fund_id
+                    WHERE f.manager_id = {emp_id}
+                ),
+                latest_dates AS (
+                    SELECT 
+                        d.month_date,
+                        MAX(fa.record_date) as latest_date
+                    FROM date_range d
+                    LEFT JOIN fund_assets fa 
+                        ON DATE_TRUNC('month', fa.record_date) <= d.month_date
+                    GROUP BY d.month_date
+                ),
+                monthly_assets AS (
+                    SELECT 
+                        ld.month_date,
+                        ld.latest_date,
+                        fa.*
+                    FROM latest_dates ld
+                    LEFT JOIN fund_assets fa ON fa.record_date = ld.latest_date
+                ),
+                asset_prices AS (
+                    SELECT 
+                        ma.*,
+                        (
+                            SELECT close_price 
+                            FROM "STOCK_HISTORY" sh
+                            WHERE sh.stock_id = ma.h_stock_id 
+                            AND sh.date <= ma.month_date + INTERVAL '1 month' - INTERVAL '1 day'
+                            ORDER BY sh.date DESC
+                            LIMIT 1
+                        ) as stock_price
+                    FROM monthly_assets ma
+                )
+                SELECT month_date as "Date", SUM(h_cash_balance + (h_stock_quantity * stock_price)) as "Fund Value" FROM asset_prices
+                GROUP BY month_date
+                ORDER BY month_date DESC;
+                """
+        
+        df = conn.query(query)
+            
+        df["Date"] = pd.to_datetime(df["Date"])
+        df["Fund Value"] = df["Fund Value"]
+        
+        ax.plot(df["Date"], np.log(df["Fund Value"]), label=name)
+    
+    ax.set_ylabel("Fund Value (Log Scale)")
+    
+    ax.grid(False)
+    ax.grid(axis='y', linestyle='--', alpha=0.3, zorder = -100)
+    
+    ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', ncol=2)
+    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(True)
     
     return fig
 
