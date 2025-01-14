@@ -918,8 +918,10 @@ def firm_industry_exposure():
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position("top")
     
+    ax.tick_params(colors='white')
+    
     ax.grid(False)
-    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
+    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100, color='white')
     
     return fig
 
@@ -1007,6 +1009,10 @@ def get_fund_values_over_time():
     ax.spines["bottom"].set_visible(True)
     
     ax.tick_params(colors='white')
+    
+    fig.patch.set_facecolor('#00172B')  
+    ax.set_facecolor('#00172B')         
+    ax.patch.set_facecolor('#00172B')
     
     return fig
 
