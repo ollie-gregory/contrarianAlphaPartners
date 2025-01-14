@@ -861,7 +861,8 @@ def investments_by_region(region):
        sizes=df["Percentage"],
        label=df["Ticker"],
        ax=ax,
-       pad=1
+       pad=1,
+       text_kwargs={'color':'white'}
     )
     
     fig.patch.set_facecolor('#00172B')
