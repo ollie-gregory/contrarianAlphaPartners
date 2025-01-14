@@ -922,8 +922,7 @@ def get_fund_values_over_time():
                 SELECT CONCAT_WS(' ', fname, lname) as Name FROM "EMPLOYEE" WHERE emp_id = {emp_id}
                 """
         
-        with pool.connect() as conn:
-            name = conn.query(query).iloc[0][0]
+        name = conn.query(query).iloc[0][0]
         
         query = f"""
                 WITH RECURSIVE date_range AS (
@@ -1063,6 +1062,11 @@ def ceo_view(user):
         fig = firm_industry_exposure()
         
         st.write("##### Industry Exposure (%)")
+        st.pyplot(fig)
+        
+        fig = get_fund_values_over_time()
+        
+        st.write("##### Fund Values Over Time")
         st.pyplot(fig)
 
 def main_page_logic(user):
