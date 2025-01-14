@@ -689,7 +689,7 @@ def manager_performance():
                         SELECT close_price
                         FROM "STOCK_HISTORY" sh
                         WHERE sh.stock_id = ha.h_stock_id
-                        AND sh.date <= ha.record_date
+                        AND sh.date <= NOW() - INTERVAL '1 month'
                         ORDER BY sh.date DESC
                         LIMIT 1
                     ) as stock_price
