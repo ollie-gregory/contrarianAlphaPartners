@@ -785,7 +785,10 @@ def plot_region_allocations(df, region):
     
     fig, ax = plt.subplots(figsize=(6,3.5))
     
-    ax.pie(df["Firm Value"], labels=labels, startangle=90, explode=explode)
+    fig.patch.set_facecolor('#00172B')
+    ax.set_facecolor('#00172B')
+    
+    ax.pie(df["Firm Value"], labels=labels, startangle=90, explode=explode, textprops={'color': 'white'})
     ax.pie(df["Firm Value"], radius=0.75, colors=['#00172B'], explode=explode, startangle=90)
     
     centre_circle = plt.Circle((0,0), 0.75, fc='#00172B')
@@ -903,7 +906,7 @@ def firm_industry_exposure():
     
     ax.spines["left"].set_position(('outward', 10))
     
-    ax.xaxis.tick_top()  # Moves ticks and labels to the right
+    ax.xaxis.tick_top()
     ax.xaxis.set_label_position("top")
     
     ax.grid(False)
@@ -911,6 +914,7 @@ def firm_industry_exposure():
     
     return fig
 
+@st.cache_resource
 def get_fund_values_over_time():
     
     fig, ax = plt.subplots(figsize=(6,3))
