@@ -862,6 +862,54 @@ def investments_by_region(region):
     
     return fig
 
+@st.cache_resource
+def firm_industry_exposure():
+    
+    query = f"""
+            SELECT 
+                s.industry AS "Industry",
+                ROUND(SUM(a.stock_quantity * s.current_price), 2) AS "Total Value",
+                ROUND((SUM(a.stock_quantity * s.current_price) / (SELECT SUM(COALESCE(stock_quantity * current_price, 0)) 
+                                                                    FROM "ASSET" a 
+                                                                    JOIN "STOCK" s 
+                                                                    ON a.stock_id = s.stock_id)
+                                                                    ) * 100, 2) 
+                AS "Percentage"
+            FROM 
+                "ASSET" a
+            JOIN 
+                "STOCK" s ON a.stock_id = s.stock_id
+            WHERE 
+                a.asset_type = 'stock'
+            GROUP BY 
+                s.industry
+            ORDER BY 
+                "Total Value" DESC;
+            """
+    
+    df = conn.query(query)
+        
+    df.sort_values("Percentage", ascending=True, inplace=True)
+    
+    fig, ax = plt.subplots(figsize=(6,4.5))
+    
+    ax.barh(df["Industry"], df["Percentage"], zorder=100)
+    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(True)
+    ax.spines["bottom"].set_visible(False)
+    
+    ax.spines["left"].set_position(('outward', 10))
+    
+    ax.xaxis.tick_top()  # Moves ticks and labels to the right
+    ax.xaxis.set_label_position("top")
+    
+    ax.grid(False)
+    ax.grid(axis='x', linestyle='--', alpha=0.3, zorder = -100)
+    
+    return fig
+
 def ceo_view(user):
 
     green_triangle = ":green[▲]"
@@ -915,6 +963,21 @@ def ceo_view(user):
         st.write("##### Firm Investments By Region")
         st.pyplot(fig)
         
+    with col3:
+        
+        col4, col5 = st.columns([7,2])
+
+        # Log out button
+        with col5:
+            if st.button("Logout"):
+                st.session_state.auth_status = False  # Reset authentication status
+                st.session_state.user = None
+                st.rerun()
+                
+        fig = firm_industry_exposure()
+        
+        st.write("##### Industry Exposure (%)")
+        st.pyplot(fig)
 
 def main_page_logic(user):
 
