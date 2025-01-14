@@ -996,20 +996,20 @@ def get_fund_values_over_time():
         
         ax.plot(df["Date"], np.log(df["Fund Value"]), label=name)
     
-    ax.set_ylabel("Fund Value (Log Scale)")
-    
     ax.grid(False)
     ax.grid(axis='y', linestyle='--', alpha=0.3, zorder = -100, color='white')
     
-    ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', ncol=2, facecolor='#00172B', edgecolor='#00172B')
+    ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', ncol=2, facecolor='#00172B', edgecolor='#00172B', labelcolor='white')
     
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(True)
     ax.spines["bottom"].set_visible(True)
     
+    ax.set_ylabel('Fund Value (Log Scale)', color='white')
+    
     ax.spines["left"].set_color("white")
-    ax.spines["left"].set_position(('outward', 10))
+    ax.spines["bottom"].set_color("white")
     
     ax.tick_params(colors='white')
     
