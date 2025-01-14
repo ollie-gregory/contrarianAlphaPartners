@@ -901,6 +901,10 @@ def firm_industry_exposure():
     
     fig, ax = plt.subplots(figsize=(6,4.5))
     
+    fig.patch.set_facecolor('#00172B')  
+    ax.set_facecolor('#00172B')         
+    ax.patch.set_facecolor('#00172B')
+    
     ax.barh(df["Industry"], df["Percentage"], zorder=100)
     
     ax.spines["top"].set_visible(False)
@@ -909,6 +913,7 @@ def firm_industry_exposure():
     ax.spines["bottom"].set_visible(False)
     
     ax.spines["left"].set_position(('outward', 10))
+    ax.spines["left"].set_color("white")
     
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position("top")
