@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import matplotlib.pyplot as plt
 import mplfinance as mpf
+import squarify
 
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -792,6 +793,75 @@ def plot_region_allocations(df, region):
     
     return fig
 
+def investments_by_region(region):
+    
+    query = """
+            SELECT 
+                s.ticker AS "Ticker",
+                s.company_name AS "Company",
+                ROUND(SUM(a.stock_quantity * s.current_price), 2) AS "Total Investment Value"
+            FROM 
+                "ASSET" a
+            JOIN 
+                "STOCK" s ON a.stock_id = s.stock_id
+            WHERE 
+                a.asset_type = 'stock'
+            GROUP BY 
+                s.ticker, s.company_name
+            ORDER BY 
+                "Total Investment Value" DESC;
+            """
+    
+    threshold = 2
+    
+    if region != 'All':
+        query = f"""
+                WITH regions AS (
+                    SELECT city, fund_id FROM "FUND" f
+                    JOIN "OFFICE" o ON o.office_id = f.location_id
+                )
+                SELECT 
+                    s.ticker AS "Ticker",
+                    s.company_name AS "Company",
+                    ROUND(SUM(a.stock_quantity * s.current_price), 2) AS "Total Investment Value"
+                FROM 
+                    "ASSET" a
+                JOIN 
+                    "STOCK" s ON a.stock_id = s.stock_id
+                JOIN
+                    regions r ON r.fund_id = a.fund_id
+                WHERE 
+                    a.asset_type = 'stock' AND r.city = '{region}' AND a.stock_quantity > 0
+                GROUP BY 
+                    s.ticker, s.company_name
+                ORDER BY 
+                    "Total Investment Value" DESC;
+                """
+        
+        threshold = 5
+
+    df = conn.query(query)
+        
+    df["Percentage"] = (df["Total Investment Value"] / df["Total Investment Value"].sum()) * 100
+        
+    other = df[df["Percentage"] < threshold]["Percentage"].sum()
+    
+    df = df[df["Percentage"] >= threshold]
+    df = pd.concat([pd.DataFrame({"Ticker": ["Other"], "Company": ["Other"], "Percentage": [other]}), df])
+        
+    fig, ax = plt.subplots(figsize=(6,3.5))
+    ax.set_axis_off()
+    
+    # Treemap plot
+    squarify.plot(
+       sizes=df["Percentage"],
+       label=df["Ticker"],
+       ax=ax,
+       pad=1
+    )
+    
+    return fig
+
 def ceo_view(user):
 
     green_triangle = ":green[▲]"
@@ -838,6 +908,11 @@ def ceo_view(user):
         fig = plot_region_allocations(df, region)
         
         st.write("##### Firm Value By Region")
+        st.pyplot(fig)
+        
+        fig = investments_by_region(region)
+        
+        st.write("##### Firm Investments By Region")
         st.pyplot(fig)
         
 
