@@ -997,7 +997,7 @@ def get_fund_values_over_time():
     ax.set_ylabel("Fund Value (Log Scale)")
     
     ax.grid(False)
-    ax.grid(axis='y', linestyle='--', alpha=0.3, zorder = -100)
+    ax.grid(axis='y', linestyle='--', alpha=0.3, zorder = -100, color='white')
     
     ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', ncol=2)
     
