@@ -64,7 +64,7 @@ def check_auth(username, password):
 def auth_page():
     st.set_page_config(
         page_title="Login",
-        page_icon="./docs/logo.png",
+        page_icon="./logo.png",
         layout="centered"
     )
 
@@ -1097,7 +1097,7 @@ def main_page_logic(user):
 
     st.set_page_config(
         page_title="Dashboard",
-        page_icon="./docs/logo.png",
+        page_icon="./logo.png",
         layout="wide"
     )
     
