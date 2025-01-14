@@ -864,6 +864,9 @@ def investments_by_region(region):
        pad=1
     )
     
+    fig.patch.set_facecolor('#00172B')
+    ax.set_facecolor('#00172B')
+    
     return fig
 
 @st.cache_resource
