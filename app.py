@@ -1006,6 +1006,8 @@ def get_fund_values_over_time():
     ax.spines["left"].set_visible(True)
     ax.spines["bottom"].set_visible(True)
     
+    ax.tick_params(colors='white')
+    
     return fig
 
 def ceo_view(user):
